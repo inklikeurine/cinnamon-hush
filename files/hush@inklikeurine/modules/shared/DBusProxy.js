@@ -1,4 +1,4 @@
-// @shared DBusProxy.js 665c3a3adce12a1be7cd1a52e91eb4df4cd2452ca6a5ddedd7e607c569d737a5 — vendored copy, do not edit; run @local/tools/sync_shared.py
+// @shared DBusProxy.js 665c3a3adce12a1be7cd1a52e91eb4df4cd2452ca6a5ddedd7e607c569d737a5 — vendored copy, do not edit; run .dev/tools/sync_shared.py
 //
 // A small wrapper around Gio.DBusProxy for Cinnamon applets: async
 // construction, cached properties as plain JS values, method calls as

@@ -1,4 +1,4 @@
-// @shared Dnd.js 555a450b4e04462fbf1b754b198c4a4eedb9234381a41f22b2d332ed787f7a1f — vendored copy, do not edit; run @local/tools/sync_shared.py
+// @shared Dnd.js 555a450b4e04462fbf1b754b198c4a4eedb9234381a41f22b2d332ed787f7a1f — vendored copy, do not edit; run .dev/tools/sync_shared.py
 //
 // Cinnamon's system-wide Do Not Disturb switch: the gsettings key
 // org.cinnamon.desktop.notifications display-notifications (false = DND).

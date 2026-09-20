@@ -1,4 +1,4 @@
-// @shared Inhibitors.js 97fd11e969c8274174cfcdb2f9349fadc81b9ddc70ba48bf03c0932e9b0af883 — vendored copy, do not edit; run @local/tools/sync_shared.py
+// @shared Inhibitors.js 00a724080c11889fa6c4305156bd5207599867985f2ae5754430980673770e57 — vendored copy, do not edit; run .dev/tools/sync_shared.py
 //
 // The session's inhibitor list (org.gnome.SessionManager): what
 // inhibit@cinnamon.org adds, what portal-using apps such as OBS add while
@@ -6,7 +6,7 @@
 // through InhibitorAdded / InhibitorRemoved; every entry is resolved to
 // { path, appId, reason, flags }. Pure Gio (on top of the shared DBusProxy):
 // runs under plain `cjs`. org.freedesktop.ScreenSaver inhibits (Chromium,
-// Electron) do NOT appear here — see @local/notes/system-services.md §8.2.
+// Electron) do NOT appear here — see .dev/notes/system-services.md §8.2.
 //
 //   const Inhibitors = require('./modules/shared/Inhibitors');
 //   const inh = await Inhibitors.Inhibitors.create();   // rejects only if the bus is unreachable

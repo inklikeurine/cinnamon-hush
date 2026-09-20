@@ -3,7 +3,7 @@
 // normalises it (js/ui/notificationDaemon.js, NotifyAsync): hint aliases
 // from spec 1.0/1.1, absolute icon paths to file:// URIs, XChat summary
 // rewrites, urgency defaulting, expiry arithmetic. Pure GLib — runs
-// headless under `cjs` and is covered by @local/tests/hush@inklikeurine/parse.test.js.
+// headless under `cjs` and is covered by .dev/tests/hush@inklikeurine/parse.test.js.
 //
 //   const Parse = require('./modules/Parse');
 //   const rec = Parse.parse([appName, replacesId, appIcon, summary, body, actions, hints, timeout],
