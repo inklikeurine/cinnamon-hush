@@ -1,0 +1,451 @@
+{
+  "layout": {
+    "type": "layout",
+    "pages": [
+      "page-general",
+      "page-dnd",
+      "page-test"
+    ],
+    "page-general": {
+      "type": "page",
+      "title": "General",
+      "sections": [
+        "section-drawer",
+        "section-history",
+        "section-panel",
+        "section-shortcuts"
+      ]
+    },
+    "section-dnd": {
+      "type": "section",
+      "title": "Do Not Disturb",
+      "keys": [
+        "allow-critical",
+        "dnd-info"
+      ]
+    },
+    "section-drawer": {
+      "type": "section",
+      "title": "Drawer",
+      "keys": [
+        "drawer-direction",
+        "drawer-width",
+        "missed-clear-mode"
+      ]
+    },
+    "section-history": {
+      "type": "section",
+      "title": "History",
+      "keys": [
+        "history-max",
+        "persist-history",
+        "ignore-transient"
+      ]
+    },
+    "section-panel": {
+      "type": "section",
+      "title": "Panel",
+      "keys": [
+        "show-count",
+        "blink-on-new"
+      ]
+    },
+    "page-test": {
+      "type": "page",
+      "title": "Test",
+      "sections": [
+        "section-test-send",
+        "section-test-drawer"
+      ]
+    },
+    "section-test-send": {
+      "type": "section",
+      "title": "Send a test notification",
+      "keys": [
+        "test-info",
+        "test-normal",
+        "test-low",
+        "test-critical",
+        "test-actions",
+        "test-markup",
+        "test-transient",
+        "test-silent",
+        "test-image",
+        "test-app",
+        "test-long",
+        "test-updating",
+        "test-burst"
+      ]
+    },
+    "section-test-drawer": {
+      "type": "section",
+      "title": "Drawer",
+      "keys": [
+        "test-toggle-dnd",
+        "test-inhibit",
+        "test-open-drawer",
+        "test-clear"
+      ]
+    },
+    "page-dnd": {
+      "type": "page",
+      "title": "Do Not Disturb",
+      "sections": [
+        "section-dnd",
+        "section-schedule",
+        "section-auto",
+        "section-muted"
+      ]
+    },
+    "section-schedule": {
+      "type": "section",
+      "title": "Schedule",
+      "keys": [
+        "schedule-enabled",
+        "schedule-start",
+        "schedule-end",
+        "schedule-days"
+      ]
+    },
+    "section-auto": {
+      "type": "section",
+      "title": "Automatic",
+      "keys": [
+        "auto-fullscreen",
+        "auto-fullscreen-scope",
+        "auto-recording",
+        "auto-inhibitor-apps",
+        "inhibitor-apps"
+      ]
+    },
+    "section-shortcuts": {
+      "type": "section",
+      "title": "Keyboard shortcuts",
+      "keys": [
+        "key-open",
+        "key-clear",
+        "key-dnd"
+      ]
+    },
+    "section-muted": {
+      "type": "section",
+      "title": "Muted applications",
+      "keys": [
+        "muted-info",
+        "muted-apps"
+      ]
+    }
+  },
+  "allow-critical": {
+    "type": "switch",
+    "default": true,
+    "description": "Show critical notifications during Do Not Disturb",
+    "tooltip": "Critical urgency only. Has no effect while notifications are turned off in System Settings, because Cinnamon then shows no banners at all."
+  },
+  "dnd-info": {
+    "type": "label",
+    "description": "Hush keeps its own Do Not Disturb state; it never changes the Notifications switch in System Settings. Turning notifications off there counts as Do Not Disturb here as well. Switching Do Not Disturb off in the drawer while a schedule or an automatic trigger holds it overrides that trigger until it ends (for the schedule: until its next start or end)."
+  },
+  "schedule-enabled": {
+    "type": "switch",
+    "default": false,
+    "description": "Turn on Do Not Disturb on a schedule"
+  },
+  "schedule-start": {
+    "type": "timechooser",
+    "default": {
+      "h": 22,
+      "m": 0,
+      "s": 0
+    },
+    "description": "Start",
+    "dependency": "schedule-enabled"
+  },
+  "schedule-end": {
+    "type": "timechooser",
+    "default": {
+      "h": 7,
+      "m": 0,
+      "s": 0
+    },
+    "description": "End",
+    "dependency": "schedule-enabled",
+    "tooltip": "An end earlier than the start means overnight. Equal times mean all day."
+  },
+  "schedule-days": {
+    "type": "combobox",
+    "default": "every-day",
+    "description": "Days",
+    "dependency": "schedule-enabled",
+    "options": {
+      "Every day": "every-day",
+      "Weekdays": "weekdays",
+      "Weekends": "weekends"
+    },
+    "tooltip": "A window belongs to the day it starts on: with Weekdays and 22:00 to 07:00, Friday night to Saturday morning is included."
+  },
+  "auto-fullscreen": {
+    "type": "switch",
+    "default": true,
+    "description": "While a window is fullscreen"
+  },
+  "auto-fullscreen-scope": {
+    "type": "combobox",
+    "default": "any",
+    "description": "Fullscreen counts",
+    "dependency": "auto-fullscreen",
+    "options": {
+      "On any monitor": "any",
+      "On the primary monitor only": "primary"
+    }
+  },
+  "auto-recording": {
+    "type": "switch",
+    "default": true,
+    "description": "While a call or recording is in progress",
+    "tooltip": "An application is recording from a microphone or capture source (a voice or video call, a screen recording with audio, OBS with a microphone). Level meters such as pavucontrol's are ignored."
+  },
+  "auto-inhibitor-apps": {
+    "type": "switch",
+    "default": true,
+    "description": "While a listed application holds a session inhibitor",
+    "tooltip": "OBS asks the session not to go idle while it records or streams; Hush treats that as recording. Applications that use the older screensaver interface (Chromium, Electron apps such as Discord) are not visible this way."
+  },
+  "inhibitor-apps": {
+    "type": "list",
+    "description": "Applications whose inhibitors count as recording",
+    "dependency": "auto-inhibitor-apps",
+    "columns": [
+      {
+        "id": "app",
+        "title": "Application id",
+        "type": "string"
+      }
+    ],
+    "default": [
+      {
+        "app": "obs"
+      },
+      {
+        "app": "com.obsproject.Studio"
+      },
+      {
+        "app": "discord"
+      },
+      {
+        "app": "Discord"
+      },
+      {
+        "app": "vesktop"
+      },
+      {
+        "app": "equibop"
+      }
+    ],
+    "tooltip": "The id an application gives the session manager, usually its desktop file name without .desktop. Case does not matter."
+  },
+  "muted-info": {
+    "type": "label",
+    "description": "Muted applications never show a banner or play a sound; their notifications are still collected in the drawer unless \"Drop\" is set. The mute button next to an application's name in the drawer adds it here."
+  },
+  "muted-apps": {
+    "type": "list",
+    "description": "Muted applications",
+    "columns": [
+      {
+        "id": "app",
+        "title": "Application id",
+        "type": "string"
+      },
+      {
+        "id": "name",
+        "title": "Name",
+        "type": "string"
+      },
+      {
+        "id": "drop",
+        "title": "Drop",
+        "type": "boolean",
+        "default": false
+      }
+    ],
+    "default": [],
+    "tooltip": "Application id as Hush derives it (desktop file name without .desktop, lower case, or the name the app sends). Drop: do not keep its notifications at all."
+  },
+  "drawer-direction": {
+    "type": "combobox",
+    "default": "auto",
+    "description": "Drawer slides in from",
+    "options": {
+      "Automatic": "auto",
+      "Left edge": "left",
+      "Right edge": "right"
+    },
+    "tooltip": "Automatic: the panel's own side for a vertical panel; for a horizontal panel, the side of the screen the applet sits on."
+  },
+  "drawer-width": {
+    "type": "spinbutton",
+    "default": 380,
+    "min": 280,
+    "max": 600,
+    "step": 10,
+    "units": "px",
+    "description": "Drawer width"
+  },
+  "missed-clear-mode": {
+    "type": "combobox",
+    "default": "on-open",
+    "description": "Unread marks clear",
+    "options": {
+      "When the drawer opens": "on-open",
+      "Only when a notification is dismissed": "per-row"
+    }
+  },
+  "history-max": {
+    "type": "spinbutton",
+    "default": 100,
+    "min": 20,
+    "max": 500,
+    "step": 10,
+    "units": "notifications",
+    "description": "Notifications kept",
+    "tooltip": "Counts every state (unread, read, cleared). The oldest cleared ones are pruned first."
+  },
+  "ignore-transient": {
+    "type": "switch",
+    "default": false,
+    "description": "Do not keep transient notifications",
+    "tooltip": "Transient notifications (volume changes, progress) still show a banner but are not listed in the drawer."
+  },
+  "persist-history": {
+    "type": "switch",
+    "default": true,
+    "description": "Keep the list across logouts and Cinnamon restarts",
+    "tooltip": "Stored as plain text in ~/.local/share/hush/history.json. Turning this off deletes the file."
+  },
+  "show-count": {
+    "type": "switch",
+    "default": true,
+    "description": "Show the unread count on the panel"
+  },
+  "blink-on-new": {
+    "type": "switch",
+    "default": true,
+    "description": "Blink the panel icon while an unread critical notification is waiting"
+  },
+  "key-open": {
+    "type": "keybinding",
+    "default": "",
+    "description": "Open or close the drawer"
+  },
+  "key-clear": {
+    "type": "keybinding",
+    "default": "",
+    "description": "Clear all notifications"
+  },
+  "key-dnd": {
+    "type": "keybinding",
+    "default": "",
+    "description": "Toggle Do Not Disturb"
+  },
+  "test-info": {
+    "type": "label",
+    "description": "Each button sends one notification through the session bus, exactly as an application would. With Do Not Disturb on they are collected in the drawer instead of shown; the panel count goes up."
+  },
+  "test-normal": {
+    "type": "button",
+    "description": "Normal",
+    "callback": "test_normal",
+    "tooltip": "Urgency normal, default timeout."
+  },
+  "test-low": {
+    "type": "button",
+    "description": "Low urgency",
+    "callback": "test_low",
+    "tooltip": "Urgency low."
+  },
+  "test-critical": {
+    "type": "button",
+    "description": "Critical",
+    "callback": "test_critical",
+    "tooltip": "Urgency critical: never expires; shows during Do Not Disturb when allowed."
+  },
+  "test-actions": {
+    "type": "button",
+    "description": "With actions",
+    "callback": "test_actions",
+    "tooltip": "A default action plus two buttons; the answer is logged in Looking Glass."
+  },
+  "test-markup": {
+    "type": "button",
+    "description": "With body markup",
+    "callback": "test_markup",
+    "tooltip": "Bold, italic, underline, an ampersand, a link and an unsupported tag."
+  },
+  "test-transient": {
+    "type": "button",
+    "description": "Transient",
+    "callback": "test_transient",
+    "tooltip": "Banner only; not kept when \"Do not keep transient notifications\" is on."
+  },
+  "test-silent": {
+    "type": "button",
+    "description": "Silent (no sound)",
+    "callback": "test_silent",
+    "tooltip": "Hint suppress-sound."
+  },
+  "test-image": {
+    "type": "button",
+    "description": "With image",
+    "callback": "test_image",
+    "tooltip": "An icon and a large image."
+  },
+  "test-app": {
+    "type": "button",
+    "description": "From a known application",
+    "callback": "test_app",
+    "tooltip": "Hint desktop-entry = cinnamon-settings: grouped under System Settings with its icon."
+  },
+  "test-long": {
+    "type": "button",
+    "description": "Long title and body",
+    "callback": "test_long",
+    "tooltip": "Five lines of body; checks wrapping and cut-off."
+  },
+  "test-updating": {
+    "type": "button",
+    "description": "Updating (replaces_id)",
+    "callback": "test_updating",
+    "tooltip": "One resident notification updated in place four times over five seconds."
+  },
+  "test-burst": {
+    "type": "button",
+    "description": "Burst of five from three apps",
+    "callback": "test_burst",
+    "tooltip": "Grouping and ordering in the drawer."
+  },
+  "test-toggle-dnd": {
+    "type": "button",
+    "description": "Toggle Do Not Disturb",
+    "callback": "test_toggle_dnd",
+    "tooltip": "Same as middle-clicking the panel icon."
+  },
+  "test-open-drawer": {
+    "type": "button",
+    "description": "Open the drawer",
+    "callback": "test_open_drawer",
+    "tooltip": "Same as left-clicking the panel icon."
+  },
+  "test-clear": {
+    "type": "button",
+    "description": "Clear all test notifications",
+    "callback": "test_clear",
+    "tooltip": "Dismisses every entry sent from this page (app name \"Hush Test\", \"Mail\", \"Messenger\", \"Software Updater\", \"System Settings\") and forgets them."
+  },
+  "test-inhibit": {
+    "type": "button",
+    "description": "Hold a test inhibitor for 10 seconds",
+    "callback": "test_inhibit",
+    "tooltip": "Takes a session inhibitor under the first id in the list above (as OBS would while recording) and releases it after 10 seconds. Expect the status line to read \"On \u2014 <app> is running an inhibitor\" meanwhile."
+  }
+}
