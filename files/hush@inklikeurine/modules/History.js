@@ -15,6 +15,7 @@
 //   h.get(id)
 //   h.dismiss(id)             // → 'cleared'
 //   h.clearAll()              // every visible record → 'cleared'; returns how many
+//   h.clearApp(appId)         // the same for one application's visible records
 //   h.markSeen('on-open')     // every 'unread' → 'read'; 'per-row' does nothing
 //   h.markRead(id)
 //   h.deleteCleared()         // forget cleared records; returns how many
@@ -101,6 +102,13 @@ class History {
         let n = 0;
         for (const rec of this._records)
             if (rec.state !== State.CLEARED) { rec.state = State.CLEARED; n++; }
+        return n;
+    }
+
+    clearApp(appId) {
+        let n = 0;
+        for (const rec of this._records)
+            if (rec.appId === appId && rec.state !== State.CLEARED) { rec.state = State.CLEARED; n++; }
         return n;
     }
 

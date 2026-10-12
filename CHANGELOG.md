@@ -3,6 +3,47 @@
 All notable changes to Hush are recorded here. Versions follow
 `metadata.json` (`version`), newest first.
 
+## [0.5.0] — 2026-10-12
+
+### Fixed
+- Unread marks were cleared the instant the drawer opened, so they were
+  never visible. The panel count still resets on open, but the rows that
+  were unread keep their mark until the drawer closes.
+- The drawer footer was wider than the drawer (four text buttons in 380 px,
+  280 px at the minimum width); it now has one text button and three icon
+  buttons with tooltips.
+
+### Changed
+- The drawer follows the Cinnamon theme: background, text, border and the
+  accent colour of the unread mark and the Do Not Disturb header come from
+  the active theme instead of a fixed dark palette.
+- Row times are relative: "now", "4 min", the clock time today,
+  "Yesterday", the weekday this week, the date before that. The exact date
+  and time are in the tooltip; the labels refresh every minute while the
+  drawer is open.
+- The status line under the Do Not Disturb switch is shown only while Do Not
+  Disturb is on. When System Settings has notifications off, the greyed
+  switch says so in its tooltip.
+- An application's mute button appears when the pointer is over its group;
+  a muted application shows a "Muted" label that unmutes it when clicked.
+- A row's × is faint until the row is hovered or focused.
+- "Show cleared" is an icon toggle in the footer; Hush settings and
+  Notification settings are icon buttons.
+- The drawer has a border and shadow on its inner edge only.
+- Empty list: a large icon, and with Do Not Disturb on, a line saying new
+  notifications will wait in the drawer.
+- A notification arriving while the drawer is open keeps the scroll
+  position and keyboard focus.
+- Panel tooltip on two lines (unread count, Do Not Disturb state).
+- The panel icon's critical blink fades instead of switching hard.
+
+### Added
+- Clear one application: a × in its group header (shown on hover) clears
+  all of that application's notifications.
+- Right-click menu: a Do Not Disturb switch and Clear all.
+- Keyboard in the drawer: Up/Down move between notifications, Enter opens,
+  Delete dismisses, Tab walks the buttons, Escape closes.
+
 ## [0.4.0] — 2026-09-19
 
 ### Added

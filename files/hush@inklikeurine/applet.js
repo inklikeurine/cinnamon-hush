@@ -18,11 +18,13 @@
 const Applet    = imports.ui.applet;
 const Settings  = imports.ui.settings;
 const Main      = imports.ui.main;
+const PopupMenu = imports.ui.popupMenu;
 const MessageTray = imports.ui.messageTray;
 const Util      = imports.misc.util;
 const GLib      = imports.gi.GLib;
 const Gio       = imports.gi.Gio;
 const St        = imports.gi.St;
+const Clutter   = imports.gi.Clutter;
 const Cinnamon  = imports.gi.Cinnamon;
 const Gettext   = imports.gettext;
 
@@ -156,11 +158,28 @@ class HushApplet extends Applet.TextIconApplet {
             onClearAll: () => this._clearAll(),
             onHushSettings: () => { this._drawer.close(); this.configureApplet(); },
             onNotificationSettings: () => { this._drawer.close(); Util.spawnCommandLine('cinnamon-settings notifications'); },
-            onOpened: () => { if (this._history.markSeen(this._missedClearMode) > 0) this._refresh(); },
+            // The panel count resets on open, but the rows that were unread
+            // keep their mark until the drawer closes (D3), so the user can
+            // see what arrived while they were away.
+            onOpened: () => {
+                this._drawer.setFresh(this._history.visible().filter(r => r.state === HistoryModule.State.UNREAD).map(r => r.id));
+                this._history.markSeen(this._missedClearMode);
+                this._refresh();
+            },
             onMuteToggle: group => this._toggleMute(group),
+            onClearGroup: group => this._clearApp(group),
             onToggleCleared: () => { this._showCleared = !this._showCleared; this._refresh(); },
             onDeleteCleared: () => { const n = this._history.deleteCleared(); global.log(LOG_PREFIX + 'deleted ' + n + ' cleared notification(s)'); this._refresh(); }
         });
+
+        // ── Right-click menu: Do Not Disturb and Clear all (Cinnamon adds
+        //    About / Configure / Remove after these) ─────────────────────
+        this._dndMenuItem = new PopupMenu.PopupSwitchMenuItem(_('Do Not Disturb'), false);
+        this._connect(this._dndMenuItem, 'toggled', () => { this._toggleManualDnd(); this._syncContextMenu(); });
+        this._clearMenuItem = new PopupMenu.PopupMenuItem(_('Clear all'));
+        this._connect(this._clearMenuItem, 'activate', () => this._clearAll());
+        this._applet_context_menu.addMenuItem(this._dndMenuItem, 0);
+        this._applet_context_menu.addMenuItem(this._clearMenuItem, 1);
 
         // ── Intake swap ──────────────────────────────────────────────────
         const daemon = Main.notificationDaemon;
@@ -326,6 +345,18 @@ class HushApplet extends Applet.TextIconApplet {
         this._refresh();
     }
 
+    // The × in an application's group header: Clear all, for that app only.
+    _clearApp(group) {
+        if (this._destroyed || !group || !group.appId) return;
+        for (const rec of this._history.visible()) {
+            if (rec.appId !== group.appId) continue;
+            this._banner.discard(rec.id);
+            this._intake.close(rec.id, Parse.ClosedReason.DISMISSED);
+        }
+        this._history.clearApp(group.appId);
+        this._refresh();
+    }
+
     // The switch: on = manual; off = manual off and every automatic reason
     // that holds it right now is overridden until it ends (schedule: until
     // its next boundary). System Settings' own key cannot be undone here.
@@ -475,10 +506,18 @@ class HushApplet extends Applet.TextIconApplet {
             this.set_applet_label('');
             this.hide_applet_label(true);
         }
-        let tip = _('Hush');
-        if (unread > 0) tip += ' — ' + (unread === 1 ? _('1 unread notification') : _('%d unread notifications').replace('%d', String(unread)));
-        if (this._dnd.active) tip += ' — ' + _('Do Not Disturb') + ': ' + this._dnd.label(_);
-        this.set_applet_tooltip(tip);
+        const tip = [];
+        if (unread > 0) tip.push(unread === 1 ? _('1 unread notification') : _('%d unread notifications').replace('%d', String(unread)));
+        if (this._dnd.active) tip.push(_('Do Not Disturb: %s').replace('%s', this._dnd.label(_)));
+        this.set_applet_tooltip(tip.length ? tip.join('\n') : _('Hush'));
+        this._syncContextMenu();
+    }
+
+    _syncContextMenu() {
+        if (this._destroyed || !this._dndMenuItem) return;
+        this._dndMenuItem.setToggleState(this._dnd.active);
+        this._dndMenuItem.setSensitive(this._dnd.switchable);
+        this._clearMenuItem.setSensitive(this._history.visible().length > 0);
     }
 
     // ── Settings → Test page (button callbacks, called by name over DBus) ──
@@ -577,7 +616,10 @@ class HushApplet extends Applet.TextIconApplet {
         if (want && !this._blinkTimer) {
             this._blinkTimer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, BLINK_MS, () => {
                 this._blinkDim = !this._blinkDim;
-                if (this._applet_icon) this._applet_icon.opacity = this._blinkDim ? 70 : 255;
+                if (this._applet_icon) {
+                    this._applet_icon.remove_all_transitions();
+                    this._applet_icon.ease({ opacity: this._blinkDim ? 70 : 255, duration: BLINK_MS - 100, mode: Clutter.AnimationMode.EASE_IN_OUT_QUAD });
+                }
                 return GLib.SOURCE_CONTINUE;
             });
         } else if (!want && this._blinkTimer) {
@@ -588,7 +630,7 @@ class HushApplet extends Applet.TextIconApplet {
     _stopBlink() {
         if (this._blinkTimer) { GLib.source_remove(this._blinkTimer); this._blinkTimer = 0; }
         this._blinkDim = false;
-        if (this._applet_icon) this._applet_icon.opacity = 255;
+        if (this._applet_icon) { this._applet_icon.remove_all_transitions(); this._applet_icon.opacity = 255; }
     }
 
     _toggleMute(group) {
@@ -658,6 +700,11 @@ class HushApplet extends Applet.TextIconApplet {
             if (this._testInhibit) { GLib.source_remove(this._testInhibit.timer); this._uninhibit(this._testInhibit.cookie); this._testInhibit = null; }
         });
         step('hotkeys', () => this._removeKeybindings());
+        step('context menu', () => {
+            for (const item of [this._dndMenuItem, this._clearMenuItem]) if (item) item.destroy();
+            this._dndMenuItem = null;
+            this._clearMenuItem = null;
+        });
         step('blink', () => this._stopBlink());
         step('store', () => { this._persist(); this._store.destroy(); });
         step('settings', () => { if (this._settings) { this._settings.finalize(); this._settings = null; } });
