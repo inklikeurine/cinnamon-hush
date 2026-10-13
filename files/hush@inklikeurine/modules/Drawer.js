@@ -10,33 +10,54 @@
 //       onDndToggle: () => …, onDismiss: r => …, onAction: (r, key) => …,
 //       onActivate: r => …, onClearAll: () => …, onHushSettings: () => …,
 //       onNotificationSettings: () => …, onOpened: () => …, onClosed: () => …,
-//       onMuteToggle: group => …, onToggleCleared: () => …, onDeleteCleared: () => …
+//       onMuteToggle: group => …, onClearGroup: group => …,
+//       onToggleCleared: () => …, onDeleteCleared: () => …
 //   });
 //   drawer.setDnd({ active, label, switchable });
+//   drawer.setFresh([record ids])   // rows marked new until the drawer closes
 //   drawer.setGroups(history.groups(), history.unreadCount(), {
 //       muted: Set of app ids, cleared: history.groups(history.cleared()), showCleared: bool });
 //   drawer.setNotice('Notification capture unavailable …') / setNotice(null)
 //   drawer.open() / close() / toggle(); drawer.isOpen
-//   drawer.destroy()   // releases the modal grab and the chrome actor
+//   drawer.destroy()   // releases the modal grab, the time timer and the chrome actor
+//
+// Colours: the drawer takes its background, text, border and accent from the
+// running Cinnamon theme (probed on every open, so a theme switch is picked
+// up); stylesheet.css holds layout and theme-neutral overlays only, plus a
+// dark fallback for a theme that defines none of the probed classes.
 
 const Main = imports.ui.main;
 const St = imports.gi.St;
 const Clutter = imports.gi.Clutter;
+const GLib = imports.gi.GLib;
 const Pango = imports.gi.Pango;
 const PopupMenu = imports.ui.popupMenu;
 const Tooltips = imports.ui.tooltips;
 
 const Markup = require('./modules/Markup');
+const TimeFmt = require('./modules/TimeFmt');
 
 const SLIDE_MS = 200;
+const TIME_REFRESH_S = 60;
+const DIM = 150;            // opacity of secondary text (time, counts)
+const CLOSE_IDLE = 90;      // opacity of a row's × until the row is hovered or focused
+const FALLBACK_ACCENT = { red: 82, green: 148, blue: 226 };
 const PanelLoc = Object.freeze({ top: 0, bottom: 1, left: 2, right: 3 });
 
-function fmtTime(ms) {
-    try {
-        return new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    } catch (e) {
-        return '';
-    }
+function rgba(c, alpha) {
+    return 'rgba(' + c.red + ',' + c.green + ',' + c.blue + ',' + alpha + ')';
+}
+
+// WCAG relative luminance and contrast, to catch a theme whose menu text
+// colour we could not read (it would be inherited, not the menu's own).
+function luminance(c) {
+    const ch = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+    return 0.2126 * ch(c.red) + 0.7152 * ch(c.green) + 0.0722 * ch(c.blue);
+}
+
+function contrast(a, b) {
+    const la = luminance(a), lb = luminance(b);
+    return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
 }
 
 class Drawer {
@@ -58,6 +79,7 @@ class Drawer {
             onOpened: o.onOpened || (() => {}),
             onClosed: o.onClosed || (() => {}),
             onMuteToggle: o.onMuteToggle || (() => {}),
+            onClearGroup: o.onClearGroup || (() => {}),
             onToggleCleared: o.onToggleCleared || (() => {}),
             onDeleteCleared: o.onDeleteCleared || (() => {})
         };
@@ -65,6 +87,7 @@ class Drawer {
         this.isOpen = false;
         this._modal = false;
         this._capturedId = 0;
+        this._timeTimer = 0;
         this._destroyed = false;
         this._side = 'right';
         this._groups = [];
@@ -72,6 +95,12 @@ class Drawer {
         this._muted = new Set();
         this._cleared = [];
         this._showCleared = false;
+        this._fresh = new Set();
+        this._dndActive = false;
+        this._switchable = true;
+        this._accent = FALLBACK_ACCENT;
+        this._rows = [];            // [{ actor, record }] of the live (not cleared) rows, in order
+        this._timeLabels = [];      // [{ label, time }] refreshed while open
 
         this._build();
         Main.layoutManager.addChrome(this.actor, { visibleInFullscreen: false, affectsStruts: false, affectsInputRegion: true });
@@ -84,26 +113,27 @@ class Drawer {
         const _ = this._;
         this.actor = new St.BoxLayout({ style_class: 'hush-drawer', vertical: true, reactive: true, width: this.width });
 
-        // Header: DND switch + status line.
+        // Header: DND switch + status line (the status line only while DND is on).
         const header = new St.BoxLayout({ style_class: 'hush-header', vertical: true });
         this._header = header;
         const dndRow = new St.BoxLayout({ style_class: 'hush-dnd-row' });
         const dndLabel = new St.Label({ style_class: 'hush-dnd-label', text: _('Do Not Disturb'), y_align: Clutter.ActorAlign.CENTER });
         this._switch = new PopupMenu.Switch(false);
         this._switchButton = new St.Button({ style_class: 'hush-dnd-switch', child: this._switch.actor, y_align: Clutter.ActorAlign.CENTER });
-        this._switchButton.connect('clicked', () => this._cb.onDndToggle());
+        this._switchButton.connect('clicked', () => { if (this._switchable) this._cb.onDndToggle(); });
+        this._switchTooltip = new Tooltips.Tooltip(this._switchButton, _('Turn Do Not Disturb on or off'));
         dndRow.add(dndLabel, { expand: true, x_fill: true, y_fill: false, y_align: St.Align.MIDDLE });
         dndRow.add(this._switchButton, { expand: false, x_fill: false, y_fill: false, y_align: St.Align.MIDDLE });
-        const statusRow = new St.BoxLayout({ style_class: 'hush-status-row' });
+        this._statusRow = new St.BoxLayout({ style_class: 'hush-status-row' });
         this._statusIcon = new St.Icon({ style_class: 'hush-status-icon', icon_name: 'notifications-disabled-symbolic', icon_type: St.IconType.SYMBOLIC, icon_size: 16, y_align: Clutter.ActorAlign.CENTER });
-        this._statusIcon.hide();
         this._status = new St.Label({ style_class: 'hush-status', text: _('Off'), y_align: Clutter.ActorAlign.CENTER });
         this._status.clutter_text.line_wrap = true;
         this._status.clutter_text.line_wrap_mode = Pango.WrapMode.WORD_CHAR;
-        statusRow.add(this._statusIcon, { y_fill: false, y_align: St.Align.MIDDLE });
-        statusRow.add(this._status, { expand: true, x_fill: true, y_fill: false, y_align: St.Align.MIDDLE });
+        this._statusRow.add(this._statusIcon, { y_fill: false, y_align: St.Align.MIDDLE });
+        this._statusRow.add(this._status, { expand: true, x_fill: true, y_fill: false, y_align: St.Align.MIDDLE });
+        this._statusRow.hide();
         header.add(dndRow, { x_fill: true });
-        header.add(statusRow, { x_fill: true });
+        header.add(this._statusRow, { x_fill: true });
         this.actor.add(header, { x_fill: true });
 
         // Degraded-mode notice, hidden unless set.
@@ -121,46 +151,120 @@ class Drawer {
         this._scroll.add_actor(this._list);
         this.actor.add(this._scroll, { expand: true, x_fill: true, y_fill: true });
 
-        // Footer.
+        // Footer: one text button, then icon buttons so it fits the minimum width.
         const footer = new St.BoxLayout({ style_class: 'hush-footer' });
-        this._clearButton = this._footerButton(_('Clear all'), () => this._cb.onClearAll());
-        this._clearedButton = this._footerButton(_('Show cleared'), () => this._cb.onToggleCleared());
-        const hushSettings = this._footerButton(_('Hush settings'), () => this._cb.onHushSettings());
-        const notifSettings = this._footerButton(_('Notification settings'), () => this._cb.onNotificationSettings());
-        footer.add(this._clearButton, { expand: false });
-        footer.add(this._clearedButton, { expand: false });
+        this._footer = footer;
+        this._clearButton = new St.Button({ style_class: 'hush-footer-button', label: _('Clear all'), can_focus: true, reactive: true });
+        this._clearButton.connect('clicked', () => this._cb.onClearAll());
+        this._clearedButton = this._iconButton('hush-footer-icon', 'document-open-recent-symbolic', 16, _('Show cleared'), () => this._cb.onToggleCleared());
+        this._clearedTooltip = this._clearedButton._hushTooltip;
+        const hushSettings = this._iconButton('hush-footer-icon', 'emblem-system-symbolic', 16, _('Hush settings'), () => this._cb.onHushSettings());
+        const notifSettings = this._iconButton('hush-footer-icon', 'preferences-system-notifications-symbolic', 16, _('Notification settings'), () => this._cb.onNotificationSettings());
+        footer.add(this._clearButton, { expand: false, y_fill: false, y_align: St.Align.MIDDLE });
         footer.add(new St.Bin(), { expand: true });
-        footer.add(hushSettings, { expand: false });
-        footer.add(notifSettings, { expand: false });
+        footer.add(this._clearedButton, { expand: false, y_fill: false, y_align: St.Align.MIDDLE });
+        footer.add(hushSettings, { expand: false, y_fill: false, y_align: St.Align.MIDDLE });
+        footer.add(notifSettings, { expand: false, y_fill: false, y_align: St.Align.MIDDLE });
         this.actor.add(footer, { x_fill: true });
 
         this.actor.connect('key-press-event', (a, ev) => this._onKeyPress(ev));
     }
 
-    _footerButton(label, onClick) {
-        const b = new St.Button({ style_class: 'hush-footer-button', label, can_focus: true, reactive: true });
+    _iconButton(styleClass, iconName, size, tooltip, onClick) {
+        const b = new St.Button({
+            style_class: styleClass, reactive: true, can_focus: true,
+            child: new St.Icon({ icon_name: iconName, icon_type: St.IconType.SYMBOLIC, icon_size: size })
+        });
+        b._hushTooltip = new Tooltips.Tooltip(b, tooltip);
         b.connect('clicked', onClick);
         return b;
+    }
+
+    // ── theme ─────────────────────────────────────────────────────────────
+
+    // Reads a colour the running theme gives `styleClass` (optionally in a
+    // pseudo-class). The probe is a hidden child, so it is on the stage and
+    // has a theme node. Returns null when the theme leaves it transparent.
+    _probe(styleClass, pseudo, what) {
+        let w = null;
+        try {
+            w = new St.Bin({ style_class: styleClass });
+            if (pseudo) w.add_style_pseudo_class(pseudo);
+            w.hide();
+            this.actor.add_child(w);
+            const node = w.get_theme_node();
+            // A border colour means nothing without a border width (St's
+            // default colour is opaque black).
+            if (what === 'border' && !(node.get_border_width(St.Side.LEFT) > 0)) return null;
+            const c = what === 'fg' ? node.get_foreground_color()
+                : what === 'border' ? node.get_border_color(St.Side.LEFT)
+                : node.get_background_color();
+            return c && c.alpha > 0 ? { red: c.red, green: c.green, blue: c.blue, alpha: c.alpha } : null;
+        } catch (e) {
+            return null;
+        } finally {
+            if (w) w.destroy();
+        }
+    }
+
+    _applyTheme() {
+        // Background, text and border from the same theme class, the first
+        // of these that paints a background; none → stylesheet fallback.
+        let bg = null, fg = null, border = null;
+        for (const cls of ['menu', 'popup-menu-content', 'popup-menu']) {
+            bg = this._probe(cls, null, 'bg');
+            if (!bg) continue;
+            fg = this._probe(cls, null, 'fg');
+            border = this._probe(cls, null, 'border');
+            break;
+        }
+        if (bg && (!fg || contrast(fg, bg) < 3))
+            fg = luminance(bg) > 0.4 ? { red: 46, green: 46, blue: 46, alpha: 255 } : { red: 232, green: 232, blue: 232, alpha: 255 };
+        this._accent = this._probe('popup-menu-item', 'active', 'bg') || this._probe('popup-menu-item', 'hover', 'bg') || FALLBACK_ACCENT;
+        let style = '';
+        // Opaque background even if the theme's menus are translucent: the
+        // drawer sits over windows at full height.
+        if (bg) style += 'background-color: rgb(' + bg.red + ',' + bg.green + ',' + bg.blue + ');';
+        if (fg) style += 'color: ' + rgba(fg, (fg.alpha / 255).toFixed(3)) + ';';
+        if (border) style += 'border-color: ' + rgba(border, (border.alpha / 255).toFixed(3)) + ';';
+        this.actor.set_style(style || null);
+        this._statusIcon.set_style('color: ' + rgba(this._accent, 1) + ';');
+        this._styleHeader();
+    }
+
+    _styleHeader() {
+        this._header.set_style(this._dndActive
+            ? 'background-color: ' + rgba(this._accent, 0.16) + '; border-bottom-color: ' + rgba(this._accent, 0.6) + ';'
+            : null);
     }
 
     // ── state in ──────────────────────────────────────────────────────────
 
     setDnd(state) {
         if (this._destroyed) return;
+        const _ = this._;
         const s = state || {};
-        this._switch.setToggleState(!!s.active);
+        this._dndActive = !!s.active;
+        this._switchable = s.switchable !== false;
+        this._switch.setToggleState(this._dndActive);
         this._status.set_text(s.label || '');
-        if (s.active) {
-            this._header.add_style_class_name('hush-header-on');
+        if (this._dndActive) {
             this._status.add_style_class_name('hush-status-on');
-            this._statusIcon.show();
+            this._statusRow.show();
         } else {
-            this._header.remove_style_class_name('hush-header-on');
             this._status.remove_style_class_name('hush-status-on');
-            this._statusIcon.hide();
+            this._statusRow.hide();
         }
-        this._switchButton.reactive = s.switchable !== false;
-        this._switchButton.opacity = s.switchable === false ? 128 : 255;
+        this._styleHeader();
+        // Stays reactive when locked so its tooltip can say why.
+        this._switchButton.opacity = this._switchable ? 255 : 128;
+        this._switchTooltip.set_text(this._switchable
+            ? _('Turn Do Not Disturb on or off')
+            : _('Turned off in System Settings → Notifications'));
+    }
+
+    setFresh(ids) {
+        this._fresh = new Set(Array.isArray(ids) ? ids : []);
     }
 
     setNotice(text) {
@@ -194,34 +298,56 @@ class Drawer {
         this._rebuild();
     }
 
+    _vadjustment() {
+        try {
+            return this._scroll.vscroll ? this._scroll.vscroll.adjustment : null;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    _focusedRowIndex() {
+        let a = global.stage.get_key_focus();
+        while (a && a !== this.actor) {
+            const i = this._rows.findIndex(r => r.actor === a);
+            if (i >= 0) return i;
+            a = a.get_parent();
+        }
+        return -1;
+    }
+
     _rebuild() {
-        this._list.destroy_all_children();
         const _ = this._;
+        // A notification arriving while the drawer is open must not move the
+        // list under the pointer or take keyboard focus away.
+        const adj = this._vadjustment();
+        const scrollKeep = adj ? adj.value : 0;
+        const focusIndex = this.isOpen ? this._focusedRowIndex() : -1;
+        const focusId = focusIndex >= 0 ? this._rows[focusIndex].record.id : null;
+
+        this._list.destroy_all_children();
+        this._rows = [];
+        this._timeLabels = [];
         let total = 0;
         for (const g of this._groups) total += g.records.length;
         let clearedTotal = 0;
         for (const g of this._cleared) clearedTotal += g.records.length;
         this._clearButton.reactive = total > 0;
         this._clearButton.opacity = total > 0 ? 255 : 128;
-        this._clearedButton.label = this._showCleared ? _('Hide cleared') : _('Show cleared');
-        this._clearedButton.reactive = clearedTotal > 0 || this._showCleared;
-        this._clearedButton.opacity = (clearedTotal > 0 || this._showCleared) ? 255 : 128;
+        const clearedUsable = clearedTotal > 0 || this._showCleared;
+        this._clearedButton.reactive = clearedUsable;
+        this._clearedButton.opacity = clearedUsable ? 255 : 128;
+        this._clearedButton.checked = this._showCleared;
+        this._clearedTooltip.set_text(this._showCleared ? _('Hide cleared') : _('Show cleared'));
 
-        if (total === 0) {
-            const empty = new St.Label({ style_class: 'hush-empty', text: _('No notifications') });
-            this._list.add(empty, { x_fill: true });
-        }
-        for (const g of this._groups) {
-            const box = new St.BoxLayout({ style_class: 'hush-group', vertical: true });
-            box.add(this._buildGroupHeader(g, false), { x_fill: true });
-            for (const rec of g.records) box.add(this._buildRow(rec, false), { x_fill: true });
-            this._list.add(box, { x_fill: true });
-        }
+        if (total === 0) this._list.add(this._buildEmpty(), { x_fill: true });
+        for (const g of this._groups) this._list.add(this._buildGroup(g, false), { x_fill: true });
         if (this._showCleared) {
             const section = new St.BoxLayout({ style_class: 'hush-cleared-section', vertical: true });
             const head = new St.BoxLayout({ style_class: 'hush-cleared-header' });
             const title = new St.Label({ style_class: 'hush-cleared-title', y_align: Clutter.ActorAlign.CENTER,
                 text: clearedTotal === 0 ? _('No cleared notifications') : (clearedTotal === 1 ? _('1 cleared notification') : _('%d cleared notifications').replace('%d', String(clearedTotal))) });
+            title.opacity = DIM;
             head.add(title, { expand: true, x_fill: true, y_fill: false, y_align: St.Align.MIDDLE });
             if (clearedTotal > 0) {
                 const del = new St.Button({ style_class: 'hush-footer-button', label: _('Delete cleared'), can_focus: true, reactive: true });
@@ -230,61 +356,125 @@ class Drawer {
             }
             section.add(head, { x_fill: true });
             for (const g of this._cleared) {
-                const box = new St.BoxLayout({ style_class: 'hush-group hush-group-cleared', vertical: true });
-                box.add(this._buildGroupHeader(g, true), { x_fill: true });
-                for (const rec of g.records) box.add(this._buildRow(rec, true), { x_fill: true });
+                const box = this._buildGroup(g, true);
+                box.opacity = DIM;
                 section.add(box, { x_fill: true });
             }
             this._list.add(section, { x_fill: true });
         }
+
+        if (adj && scrollKeep > 0) adj.value = scrollKeep;
+        if (focusIndex >= 0 && this._rows.length > 0) {
+            let i = this._rows.findIndex(r => r.record.id === focusId);
+            if (i < 0) i = Math.min(focusIndex, this._rows.length - 1);
+            this._rows[i].actor.grab_key_focus();
+        }
     }
 
-    _buildGroupHeader(group, cleared) {
+    _buildEmpty() {
         const _ = this._;
+        const box = new St.BoxLayout({ style_class: 'hush-empty', vertical: true });
+        const icon = new St.Icon({
+            style_class: 'hush-empty-icon', icon_type: St.IconType.SYMBOLIC, icon_size: 48,
+            icon_name: this._dndActive ? 'notifications-disabled-symbolic' : 'preferences-system-notifications-symbolic'
+        });
+        icon.opacity = 110;
+        box.add(icon, { x_fill: false, x_align: St.Align.MIDDLE });
+        box.add(new St.Label({ style_class: 'hush-empty-title', text: _('No notifications') }), { x_fill: false, x_align: St.Align.MIDDLE });
+        if (this._dndActive) {
+            const more = new St.Label({ style_class: 'hush-empty-text', text: _('Do Not Disturb is on — new notifications will wait here') });
+            more.clutter_text.line_wrap = true;
+            more.clutter_text.line_wrap_mode = Pango.WrapMode.WORD_CHAR;
+            more.clutter_text.ellipsize = Pango.EllipsizeMode.NONE;
+            more.opacity = DIM;
+            box.add(more, { x_fill: true });
+        }
+        return box;
+    }
+
+    // One application: header (icon, name, count, hover controls) + rows.
+    // The mute and clear buttons appear while the pointer is over the group;
+    // a muted application shows a "Muted" pill instead, always visible.
+    _buildGroup(group, cleared) {
+        const _ = this._;
+        const box = new St.BoxLayout({ style_class: 'hush-group', vertical: true, reactive: !cleared, track_hover: !cleared });
         const header = new St.BoxLayout({ style_class: 'hush-group-header' });
         const first = group.records[0];
         let icon = null;
         try { icon = this._iconFor(first, 20); } catch (e) { icon = null; }
         if (icon) header.add(icon, { y_align: St.Align.MIDDLE, y_fill: false });
-        const muted = this._muted.has(group.appId);
-        const label = new St.Label({ style_class: 'hush-group-label', text: (group.appLabel || group.appId) + (muted ? ' \u2014 ' + _('muted') : ''), y_align: Clutter.ActorAlign.CENTER });
+        const label = new St.Label({ style_class: 'hush-group-label', text: group.appLabel || group.appId, y_align: Clutter.ActorAlign.CENTER });
         label.clutter_text.ellipsize = Pango.EllipsizeMode.END;
         header.add(label, { expand: true, x_fill: true, y_fill: false, y_align: St.Align.MIDDLE });
         if (group.records.length > 1) {
             const count = new St.Label({ style_class: 'hush-group-count', text: String(group.records.length), y_align: Clutter.ActorAlign.CENTER });
+            count.opacity = DIM;
             header.add(count, { y_fill: false, y_align: St.Align.MIDDLE });
         }
         if (!cleared) {
-            const mute = new St.Button({
-                style_class: 'hush-mute-button' + (muted ? ' hush-muted' : ''), reactive: true, can_focus: true,
-                child: new St.Icon({ icon_name: muted ? 'notifications-disabled-symbolic' : 'preferences-system-notifications-symbolic', icon_type: St.IconType.SYMBOLIC, icon_size: 14 })
-            });
-            new Tooltips.Tooltip(mute, muted ? _('Unmute this application') : _('Mute this application'));
-            mute.connect('clicked', () => this._cb.onMuteToggle(group));
-            header.add(mute, { y_fill: false, y_align: St.Align.MIDDLE });
+            const muted = this._muted.has(group.appId);
+            const hoverOnly = [];
+            if (muted) {
+                const pillBox = new St.BoxLayout({ style_class: 'hush-muted-pill-box' });
+                pillBox.add(new St.Icon({ icon_name: 'notifications-disabled-symbolic', icon_type: St.IconType.SYMBOLIC, icon_size: 12 }), { y_fill: false, y_align: St.Align.MIDDLE });
+                pillBox.add(new St.Label({ text: _('Muted'), y_align: Clutter.ActorAlign.CENTER }), { y_fill: false, y_align: St.Align.MIDDLE });
+                const pill = new St.Button({ style_class: 'hush-muted-pill', reactive: true, can_focus: true, child: pillBox });
+                new Tooltips.Tooltip(pill, _('Unmute this application'));
+                pill.connect('clicked', () => this._cb.onMuteToggle(group));
+                header.add(pill, { y_fill: false, y_align: St.Align.MIDDLE });
+            } else {
+                const mute = this._iconButton('hush-group-button', 'preferences-system-notifications-symbolic', 14, _('Mute this application'), () => this._cb.onMuteToggle(group));
+                hoverOnly.push(mute);
+                header.add(mute, { y_fill: false, y_align: St.Align.MIDDLE });
+            }
+            const clear = this._iconButton('hush-group-button', 'window-close-symbolic', 14, _('Clear this application'), () => this._cb.onClearGroup(group));
+            hoverOnly.push(clear);
+            header.add(clear, { y_fill: false, y_align: St.Align.MIDDLE });
+            const sync = () => {
+                const on = box.hover || hoverOnly.some(b => b.has_key_focus());
+                for (const b of hoverOnly) { b.opacity = on ? 255 : 0; b.reactive = on; }
+            };
+            box.connect('notify::hover', sync);
+            for (const b of hoverOnly) {
+                b.connect('key-focus-in', sync);
+                b.connect('key-focus-out', sync);
+            }
+            sync();
         }
-        return header;
+        box.add(header, { x_fill: true });
+        for (const rec of group.records) box.add(this._buildRow(rec, cleared), { x_fill: true });
+        return box;
     }
 
     _buildRow(record, cleared) {
         const row = new St.BoxLayout({ style_class: 'hush-row', vertical: true, reactive: !cleared, track_hover: !cleared, can_focus: !cleared });
         if (cleared) row.add_style_class_name('hush-row-cleared');
-        if (record.state === 'unread') row.add_style_class_name('hush-unread');
+        const fresh = !cleared && (record.state === 'unread' || this._fresh.has(record.id));
         if (record.urgency === 2) row.add_style_class_name('hush-critical');
+        else if (fresh) {
+            row.add_style_class_name('hush-unread');
+            row.set_style('border-left-color: ' + rgba(this._accent, 1) + ';');
+        }
 
         const top = new St.BoxLayout({ style_class: 'hush-row-top' });
         const title = new St.Label({ style_class: 'hush-row-title', y_align: Clutter.ActorAlign.CENTER });
         title.clutter_text.set_markup('<b>' + Markup.escape(Markup.plain(record.summary || '')) + '</b>');
         title.clutter_text.ellipsize = Pango.EllipsizeMode.END;
-        const time = new St.Label({ style_class: 'hush-row-time', text: fmtTime(record.time), y_align: Clutter.ActorAlign.CENTER });
-        const close = new St.Button({
-            style_class: 'hush-row-close', reactive: true, can_focus: true,
-            child: new St.Icon({ icon_name: 'window-close-symbolic', icon_type: St.IconType.SYMBOLIC, icon_size: 14 })
-        });
-        close.connect('clicked', () => this._cb.onDismiss(record));
+        const time = new St.Label({ style_class: 'hush-row-time', reactive: true, text: TimeFmt.relative(record.time, Date.now(), this._), y_align: Clutter.ActorAlign.CENTER });
+        time.opacity = DIM;
+        new Tooltips.Tooltip(time, TimeFmt.exact(record.time));
+        this._timeLabels.push({ label: time, time: record.time });
         top.add(title, { expand: true, x_fill: true, y_fill: false, y_align: St.Align.MIDDLE });
         top.add(time, { y_fill: false, y_align: St.Align.MIDDLE });
-        if (!cleared) top.add(close, { y_fill: false, y_align: St.Align.MIDDLE });
+        let close = null;
+        if (!cleared) {
+            close = new St.Button({
+                style_class: 'hush-row-close', reactive: true, can_focus: true,
+                child: new St.Icon({ icon_name: 'window-close-symbolic', icon_type: St.IconType.SYMBOLIC, icon_size: 14 })
+            });
+            close.connect('clicked', () => this._cb.onDismiss(record));
+            top.add(close, { y_fill: false, y_align: St.Align.MIDDLE });
+        }
         row.add(top, { x_fill: true });
 
         if (record.body) {
@@ -314,6 +504,13 @@ class Drawer {
         }
 
         if (cleared) return row;
+        // × is quiet until the row is hovered or focused.
+        const syncClose = () => { close.opacity = (row.hover || row.has_key_focus() || close.hover || close.has_key_focus()) ? 255 : CLOSE_IDLE; };
+        row.connect('notify::hover', syncClose);
+        row.connect('key-focus-in', syncClose);
+        row.connect('key-focus-out', syncClose);
+        close.connect('notify::hover', syncClose);
+        syncClose();
         row.connect('button-release-event', (actor, ev) => {
             if (ev.get_button() !== 1) return Clutter.EVENT_PROPAGATE;
             const src = ev.get_source();
@@ -321,7 +518,26 @@ class Drawer {
             this._cb.onActivate(record);
             return Clutter.EVENT_STOP;
         });
+        this._rows.push({ actor: row, record });
         return row;
+    }
+
+    _refreshTimes() {
+        const now = Date.now();
+        for (const t of this._timeLabels) t.label.set_text(TimeFmt.relative(t.time, now, this._));
+    }
+
+    _startTimeTimer() {
+        this._stopTimeTimer();
+        this._timeTimer = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, TIME_REFRESH_S, () => {
+            if (this._destroyed || !this.isOpen) { this._timeTimer = 0; return GLib.SOURCE_REMOVE; }
+            this._refreshTimes();
+            return GLib.SOURCE_CONTINUE;
+        });
+    }
+
+    _stopTimeTimer() {
+        if (this._timeTimer) { GLib.source_remove(this._timeTimer); this._timeTimer = 0; }
     }
 
     // ── geometry ──────────────────────────────────────────────────────────
@@ -382,6 +598,9 @@ class Drawer {
         const { mon, rect } = this._workArea(index);
         const side = this._resolveSide(mon);
         this._side = side;
+        // Border and shadow on the inner edge only.
+        this.actor.remove_style_class_name(side === 'left' ? 'hush-side-right' : 'hush-side-left');
+        this.actor.add_style_class_name(side === 'left' ? 'hush-side-left' : 'hush-side-right');
         const width = Math.min(this.width, rect.width);
         const targetX = side === 'left' ? rect.x : rect.x + rect.width - width;
         const hiddenX = side === 'left' ? rect.x - width : rect.x + rect.width;
@@ -398,15 +617,20 @@ class Drawer {
         if (this._destroyed || this.isOpen) return false;
         this.isOpen = true;
         this.actor.show();
+        this._applyTheme();
         this._place(true);
         this._grab();
         this._cb.onOpened();
+        this._refreshTimes();
+        this._startTimeTimer();
         return true;
     }
 
     close() {
         if (this._destroyed || !this.isOpen) return false;
         this.isOpen = false;
+        this._fresh = new Set();
+        this._stopTimeTimer();
         this._ungrab();
         const { hiddenX } = this._place(false);
         this.actor.remove_all_transitions();
@@ -448,10 +672,7 @@ class Drawer {
 
     _onCapturedEvent(ev) {
         const type = ev.type();
-        if (type === Clutter.EventType.KEY_PRESS) {
-            if (ev.get_key_symbol() === Clutter.KEY_Escape) { this.close(); return Clutter.EVENT_STOP; }
-            return Clutter.EVENT_PROPAGATE;
-        }
+        if (type === Clutter.EventType.KEY_PRESS) return this._onKeyPress(ev);
         if (type === Clutter.EventType.BUTTON_PRESS || type === Clutter.EventType.TOUCH_BEGIN) {
             const src = ev.get_source();
             if (this._contains(this.actor, src)) return Clutter.EVENT_PROPAGATE;
@@ -468,16 +689,50 @@ class Drawer {
         return Clutter.EVENT_PROPAGATE;
     }
 
+    // Keyboard (secondary to the mouse): nothing is focused on open, so a
+    // mouse user sees no selection; the first arrow key focuses the first row.
+    // Up/Down move between rows, Enter opens, Delete dismisses, Tab walks the
+    // buttons, Escape closes.
     _onKeyPress(ev) {
-        if (ev.get_key_symbol() === Clutter.KEY_Escape) { this.close(); return Clutter.EVENT_STOP; }
+        const sym = ev.get_key_symbol();
+        if (sym === Clutter.KEY_Escape) { this.close(); return Clutter.EVENT_STOP; }
+        if (!this.isOpen) return Clutter.EVENT_PROPAGATE;
+        const i = this._focusedRowIndex();
+        if (sym === Clutter.KEY_Down || sym === Clutter.KEY_Up) {
+            if (this._rows.length === 0) return Clutter.EVENT_STOP;
+            let next = i < 0 ? 0 : i + (sym === Clutter.KEY_Down ? 1 : -1);
+            next = Math.max(0, Math.min(this._rows.length - 1, next));
+            this._rows[next].actor.grab_key_focus();
+            return Clutter.EVENT_STOP;
+        }
+        if (i >= 0 && (sym === Clutter.KEY_Return || sym === Clutter.KEY_KP_Enter)) {
+            const focus = global.stage.get_key_focus();
+            if (focus !== this._rows[i].actor) return Clutter.EVENT_PROPAGATE;   // a focused button handles its own Enter
+            this._cb.onActivate(this._rows[i].record);
+            return Clutter.EVENT_STOP;
+        }
+        if (i >= 0 && sym === Clutter.KEY_Delete) {
+            this._cb.onDismiss(this._rows[i].record);
+            return Clutter.EVENT_STOP;
+        }
+        if (sym === Clutter.KEY_Tab || sym === Clutter.KEY_ISO_Left_Tab) {
+            const back = sym === Clutter.KEY_ISO_Left_Tab || (ev.get_state() & Clutter.ModifierType.SHIFT_MASK);
+            const from = global.stage.get_key_focus();
+            this.actor.navigate_focus(this._contains(this.actor, from) ? from : null,
+                back ? St.DirectionType.TAB_BACKWARD : St.DirectionType.TAB_FORWARD, true);
+            return Clutter.EVENT_STOP;
+        }
         return Clutter.EVENT_PROPAGATE;
     }
 
     destroy() {
         if (this._destroyed) return;
         this.isOpen = false;
+        this._stopTimeTimer();
         this._ungrab();
         this._destroyed = true;
+        this._rows = [];
+        this._timeLabels = [];
         try { this.actor.remove_all_transitions(); } catch (e) { /* ignore */ }
         try { Main.layoutManager.removeChrome(this.actor); } catch (e) { /* ignore */ }
         try { this.actor.destroy(); } catch (e) { /* ignore */ }

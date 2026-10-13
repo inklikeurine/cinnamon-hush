@@ -2,7 +2,7 @@
   "uuid": "hush@inklikeurine",
   "name": "Hush",
   "description": "Notification centre with scheduled and automatic Do Not Disturb, per-app muting and a sliding list",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "cinnamon-version": [
     "6.6"
   ],

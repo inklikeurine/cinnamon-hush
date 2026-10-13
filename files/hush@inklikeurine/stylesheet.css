@@ -1,21 +1,35 @@
 /* Hush — every class is prefixed with the applet name so it cannot collide
-   with the theme. Colours come from the theme where possible (the drawer
-   reuses the popup-menu look); only layout and emphasis are set here. */
+   with the theme. The drawer's background, text, border and accent come from
+   the running Cinnamon theme at runtime (Drawer.js probes the theme's menu
+   colours and sets them inline); the colours below are only a fallback for a
+   theme that defines none of them. Everything else here is layout or a
+   neutral grey overlay that reads on light and dark themes alike. */
 
 .hush-drawer {
     background-color: #1e1e1e;
-    border-width: 1px;
-    border-color: rgba(255, 255, 255, 0.12);
     color: #e8e8e8;
+    border-color: rgba(128, 128, 128, 0.35);
+    border-width: 0;
     padding: 0;
     spacing: 0;
+}
+
+/* Border and shadow on the edge that faces the screen. */
+.hush-drawer.hush-side-right {
+    border-left-width: 1px;
+    box-shadow: -8px 0 24px rgba(0, 0, 0, 0.35);
+}
+
+.hush-drawer.hush-side-left {
+    border-right-width: 1px;
+    box-shadow: 8px 0 24px rgba(0, 0, 0, 0.35);
 }
 
 .hush-header {
     padding: 14px 16px 10px 16px;
     spacing: 4px;
     border-bottom-width: 1px;
-    border-bottom-color: rgba(255, 255, 255, 0.10);
+    border-bottom-color: rgba(128, 128, 128, 0.3);
 }
 
 .hush-dnd-row {
@@ -31,29 +45,14 @@
     padding: 2px;
 }
 
-.hush-header.hush-header-on {
-    background-color: rgba(82, 148, 226, 0.22);
-    border-bottom-color: rgba(82, 148, 226, 0.6);
-}
-
 .hush-status-row {
     spacing: 8px;
     padding-top: 2px;
 }
 
-.hush-status {
-    color: rgba(232, 232, 232, 0.6);
-    font-size: 0.95em;
-}
-
 .hush-status.hush-status-on {
-    color: #ffffff;
     font-weight: bold;
     font-size: 1.05em;
-}
-
-.hush-status-icon {
-    color: #8ab8f0;
 }
 
 .hush-notice {
@@ -73,9 +72,17 @@
 }
 
 .hush-empty {
-    padding: 24px 16px;
-    color: rgba(232, 232, 232, 0.5);
+    padding: 48px 24px 24px 24px;
+    spacing: 10px;
+}
+
+.hush-empty-title {
+    font-weight: bold;
+}
+
+.hush-empty-text {
     text-align: center;
+    font-size: 0.9em;
 }
 
 .hush-group {
@@ -85,16 +92,41 @@
 .hush-group-header {
     padding: 6px 16px 2px 16px;
     spacing: 8px;
+    min-height: 26px;
 }
 
 .hush-group-label {
     font-weight: bold;
-    color: rgba(232, 232, 232, 0.85);
 }
 
 .hush-group-count {
-    color: rgba(232, 232, 232, 0.5);
     font-size: 0.85em;
+}
+
+.hush-group-button,
+.hush-row-close {
+    padding: 3px 5px;
+    border-radius: 4px;
+}
+
+.hush-group-button:hover,
+.hush-row-close:hover {
+    background-color: rgba(128, 128, 128, 0.22);
+}
+
+.hush-muted-pill {
+    padding: 2px 8px;
+    border-radius: 10px;
+    background-color: rgba(229, 165, 10, 0.2);
+    font-size: 0.85em;
+}
+
+.hush-muted-pill:hover {
+    background-color: rgba(229, 165, 10, 0.35);
+}
+
+.hush-muted-pill-box {
+    spacing: 4px;
 }
 
 .hush-row {
@@ -107,9 +139,15 @@
 }
 
 .hush-row:hover {
-    background-color: rgba(255, 255, 255, 0.07);
+    background-color: rgba(128, 128, 128, 0.14);
 }
 
+.hush-row:focus {
+    background-color: rgba(128, 128, 128, 0.22);
+}
+
+/* Unread rows: the accent colour is set inline from the theme; this is the
+   fallback. */
 .hush-row.hush-unread {
     border-left-color: #5294e2;
 }
@@ -118,26 +156,11 @@
     border-left-color: #e25252;
 }
 
-.hush-mute-button {
-    padding: 2px 4px;
-    border-radius: 4px;
-    color: rgba(232, 232, 232, 0.45);
-}
-
-.hush-mute-button:hover {
-    background-color: rgba(255, 255, 255, 0.12);
-    color: #ffffff;
-}
-
-.hush-mute-button.hush-muted {
-    color: #e2a852;
-}
-
 .hush-cleared-section {
     margin-top: 8px;
     padding-top: 8px;
     border-top-width: 1px;
-    border-top-color: rgba(255, 255, 255, 0.10);
+    border-top-color: rgba(128, 128, 128, 0.3);
 }
 
 .hush-cleared-header {
@@ -146,12 +169,7 @@
 }
 
 .hush-cleared-title {
-    color: rgba(232, 232, 232, 0.6);
     font-weight: bold;
-}
-
-.hush-group-cleared {
-    opacity: 110;
 }
 
 .hush-row-cleared {
@@ -167,23 +185,7 @@
 }
 
 .hush-row-time {
-    color: rgba(232, 232, 232, 0.5);
     font-size: 0.85em;
-}
-
-.hush-row-close {
-    padding: 2px 4px;
-    border-radius: 4px;
-    color: rgba(232, 232, 232, 0.6);
-}
-
-.hush-row-close:hover {
-    background-color: rgba(255, 255, 255, 0.12);
-    color: #ffffff;
-}
-
-.hush-row-body {
-    color: rgba(232, 232, 232, 0.85);
 }
 
 .hush-row-actions {
@@ -192,27 +194,43 @@
 }
 
 .hush-action-button,
-.hush-footer-button {
+.hush-footer-button,
+.hush-footer-icon {
     padding: 4px 10px;
     border-radius: 4px;
     border-width: 1px;
-    border-color: rgba(255, 255, 255, 0.18);
-    background-color: rgba(255, 255, 255, 0.06);
+    border-color: rgba(128, 128, 128, 0.4);
+    background-color: rgba(128, 128, 128, 0.1);
+}
+
+.hush-footer-icon {
+    padding: 5px 7px;
 }
 
 .hush-action-button:hover,
-.hush-footer-button:hover {
-    background-color: rgba(255, 255, 255, 0.14);
+.hush-footer-button:hover,
+.hush-footer-icon:hover {
+    background-color: rgba(128, 128, 128, 0.24);
+}
+
+.hush-footer-icon:checked {
+    background-color: rgba(128, 128, 128, 0.32);
+    border-color: rgba(128, 128, 128, 0.7);
 }
 
 .hush-action-button:focus,
-.hush-footer-button:focus {
-    border-color: rgba(82, 148, 226, 0.9);
+.hush-footer-button:focus,
+.hush-footer-icon:focus,
+.hush-group-button:focus,
+.hush-row-close:focus,
+.hush-muted-pill:focus {
+    border-width: 1px;
+    border-color: rgba(128, 128, 128, 0.9);
 }
 
 .hush-footer {
     padding: 10px 16px;
     spacing: 8px;
     border-top-width: 1px;
-    border-top-color: rgba(255, 255, 255, 0.10);
+    border-top-color: rgba(128, 128, 128, 0.3);
 }

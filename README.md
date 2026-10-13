@@ -19,10 +19,11 @@ two on your panels.
 ## Features
 
 - Sliding drawer (left or right edge, automatic by default) listing every
-  notification grouped by application, newest first, with time, body,
-  action buttons and a dismiss button per entry
-- Do Not Disturb switch in the drawer header and on middle-click of the
-  panel icon; the status line always says why it is on
+  notification grouped by application, newest first, with a relative time
+  ("now", "4 min", "Yesterday"), body, action buttons and a dismiss button
+  per entry; it takes its colours from the active Cinnamon theme
+- Do Not Disturb switch in the drawer header, in the panel icon's
+  right-click menu and on middle-click; the status line says why it is on
 - Scheduled Do Not Disturb: start/end times (overnight is fine), every day,
   weekdays or weekends
 - Automatic Do Not Disturb while a window is fullscreen, while a call or
@@ -32,7 +33,8 @@ two on your panels.
 - Switching Do Not Disturb off while a schedule or trigger holds it
   overrides that source until it ends
 - Notifications that arrive during Do Not Disturb are collected silently
-  and marked unread; the panel icon shows the unread count
+  and marked unread; the panel icon shows the unread count, and the new
+  entries stay marked while the drawer is open
 - Critical notifications can still show a banner during Do Not Disturb
   (setting)
 - Notifications turned off in *System Settings → Notifications* are
@@ -43,6 +45,7 @@ two on your panels.
 - The list survives logouts and Cinnamon restarts (can be turned off)
 - Mute an application with the button next to its name: no banner, no
   sound, still collected — or dropped entirely with the "Drop" flag
+- Clear one application's notifications from its group header
 - Keyboard shortcuts for opening the drawer, clearing and toggling Do Not
   Disturb; the panel icon blinks while an unread critical notification waits
 - Optional: do not keep transient notifications (volume, progress)
@@ -72,16 +75,21 @@ Source: <https://github.com/inklikeurine/cinnamon-applets/tree/main/hush@inklike
 
 1. Add **Hush** to a panel (*Right-click panel → Applets*) and remove the
    built-in *Notifications* applet.
-2. Left-click the icon: the drawer slides in. Click an entry to open its
-   application, press an action button to answer it, or `×` to dismiss it.
-   *Clear all* at the bottom dismisses everything; *Show cleared* lists
-   what was dismissed, with *Delete cleared* to forget it. The bell button
-   next to an application's name mutes that application (press again to
-   unmute). Escape, a click outside or another click on the icon closes
-   the drawer.
-3. Turn Do Not Disturb on with the switch at the top of the drawer or by
-   middle-clicking the icon. The icon changes and the status line says
-   "On". Banners and sounds stop; entries collect with an unread mark.
+2. Left-click the icon: the drawer slides in. Entries that arrived since
+   you last looked carry a coloured mark until you close the drawer. Click
+   an entry to open its application, press an action button to answer it,
+   or `×` to dismiss it. Point at an application's group to show its
+   buttons: the bell mutes that application (a "Muted" label then stays;
+   click it to unmute) and `×` clears all of its entries. *Clear all* at
+   the bottom dismisses everything; the clock button next to it shows what
+   was dismissed, with *Delete cleared* to forget it; the gear opens Hush's
+   settings and the last button Cinnamon's notification settings. Point at
+   a time to see the exact date. Escape, a click outside or another click
+   on the icon closes the drawer. From the keyboard: Up/Down move between
+   entries, Enter opens one, Delete dismisses it, Tab reaches the buttons.
+3. Turn Do Not Disturb on with the switch at the top of the drawer, from
+   the icon's right-click menu, or by middle-clicking the icon. The icon
+   changes and a status line appears under the switch saying "On". Banners and sounds stop; entries collect with an unread mark.
    When a schedule or an automatic trigger turned it on, the status line
    says which ("On until 07:00 (schedule)", "On — fullscreen window",
    "On — call or recording in progress", "On — obs is running an
