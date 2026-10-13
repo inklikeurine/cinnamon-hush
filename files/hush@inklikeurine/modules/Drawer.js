@@ -32,10 +32,10 @@ const Clutter = imports.gi.Clutter;
 const GLib = imports.gi.GLib;
 const Pango = imports.gi.Pango;
 const PopupMenu = imports.ui.popupMenu;
-const Tooltips = imports.ui.tooltips;
 
 const Markup = require('./modules/Markup');
 const TimeFmt = require('./modules/TimeFmt');
+const EdgeTooltip = require('./modules/EdgeTooltip');
 
 const SLIDE_MS = 200;
 const TIME_REFRESH_S = 60;
@@ -121,7 +121,7 @@ class Drawer {
         this._switch = new PopupMenu.Switch(false);
         this._switchButton = new St.Button({ style_class: 'hush-dnd-switch', child: this._switch.actor, y_align: Clutter.ActorAlign.CENTER });
         this._switchButton.connect('clicked', () => { if (this._switchable) this._cb.onDndToggle(); });
-        this._switchTooltip = new Tooltips.Tooltip(this._switchButton, _('Turn Do Not Disturb on or off'));
+        this._switchTooltip = EdgeTooltip.create(this._switchButton, _('Turn Do Not Disturb on or off'));
         dndRow.add(dndLabel, { expand: true, x_fill: true, y_fill: false, y_align: St.Align.MIDDLE });
         dndRow.add(this._switchButton, { expand: false, x_fill: false, y_fill: false, y_align: St.Align.MIDDLE });
         this._statusRow = new St.BoxLayout({ style_class: 'hush-status-row' });
@@ -175,7 +175,7 @@ class Drawer {
             style_class: styleClass, reactive: true, can_focus: true,
             child: new St.Icon({ icon_name: iconName, icon_type: St.IconType.SYMBOLIC, icon_size: size })
         });
-        b._hushTooltip = new Tooltips.Tooltip(b, tooltip);
+        b._hushTooltip = EdgeTooltip.create(b, tooltip);
         b.connect('clicked', onClick);
         return b;
     }
@@ -419,7 +419,7 @@ class Drawer {
                 pillBox.add(new St.Icon({ icon_name: 'notifications-disabled-symbolic', icon_type: St.IconType.SYMBOLIC, icon_size: 12 }), { y_fill: false, y_align: St.Align.MIDDLE });
                 pillBox.add(new St.Label({ text: _('Muted'), y_align: Clutter.ActorAlign.CENTER }), { y_fill: false, y_align: St.Align.MIDDLE });
                 const pill = new St.Button({ style_class: 'hush-muted-pill', reactive: true, can_focus: true, child: pillBox });
-                new Tooltips.Tooltip(pill, _('Unmute this application'));
+                EdgeTooltip.create(pill, _('Unmute this application'));
                 pill.connect('clicked', () => this._cb.onMuteToggle(group));
                 header.add(pill, { y_fill: false, y_align: St.Align.MIDDLE });
             } else {
@@ -462,7 +462,7 @@ class Drawer {
         title.clutter_text.ellipsize = Pango.EllipsizeMode.END;
         const time = new St.Label({ style_class: 'hush-row-time', reactive: true, text: TimeFmt.relative(record.time, Date.now(), this._), y_align: Clutter.ActorAlign.CENTER });
         time.opacity = DIM;
-        new Tooltips.Tooltip(time, TimeFmt.exact(record.time));
+        EdgeTooltip.create(time, TimeFmt.exact(record.time));
         this._timeLabels.push({ label: time, time: record.time });
         top.add(title, { expand: true, x_fill: true, y_fill: false, y_align: St.Align.MIDDLE });
         top.add(time, { y_fill: false, y_align: St.Align.MIDDLE });

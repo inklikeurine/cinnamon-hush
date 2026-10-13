@@ -3,6 +3,14 @@
 All notable changes to Hush are recorded here. Versions follow
 `metadata.json` (`version`), newest first.
 
+## [0.5.1] — 2026-10-12
+
+### Fixed
+- Tooltips in the drawer (a row's exact time, the footer and header buttons)
+  ran off the edge of the screen the first time they appeared, and off the
+  bottom near the footer. Cinnamon places a new tooltip as if it had no width
+  and never keeps it above the bottom edge; Hush now moves it back on screen.
+
 ## [0.5.0] — 2026-10-12
 
 ### Fixed
