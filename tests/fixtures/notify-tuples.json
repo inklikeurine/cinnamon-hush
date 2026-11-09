@@ -1,0 +1,13 @@
+{
+  "_comment": "Sanitised org.freedesktop.Notifications Notify argument tuples: [app_name, replaces_id, app_icon, summary, body, actions, hints, expire_timeout]. Hints are plain (already unpacked) values. No real names, paths or messages.",
+  "notify-send": ["notify-send", 0, "", "Build finished", "3 warnings", [], {"urgency": 1, "sender-pid": 4242}, -1],
+  "mail-client": ["Mail", 0, "mail-unread", "2 new messages", "Alice: are we still on?\nBob: invoice attached", ["default", "Open", "mark-read", "Mark read"], {"desktop-entry": "org.example.Mail", "urgency": 1, "category": "email.arrived", "image-path": "/usr/share/icons/hicolor/48x48/apps/mail.png"}, -1],
+  "player-legacy-icon-data": ["Player", 0, "", "Now playing", "Some Artist — Some Track", [], {"icon_data": [2, 2, 8, true, 8, 4, [255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 255, 255]], "urgency": 0, "transient": true, "suppress-sound": true}, 5000],
+  "player-image-path-alias": ["Player", 0, "audio-x-generic", "Now playing", "", [], {"image_path": "/tmp/cover.png", "urgency": 1}, -1],
+  "critical": ["Power", 0, "battery-caution", "Battery critically low", "Plug in now", [], {"urgency": 2, "resident": true}, 0],
+  "resident-timeout": ["Downloader", 0, "", "Downloading", "40%", ["cancel", "Cancel"], {"urgency": 1, "resident": true}, -1],
+  "custom-timeout": ["Timer", 0, "", "Done", "", [], {"urgency": 1}, 2500],
+  "xchat": ["XChat", 0, "xchat", "XChat: Private message from: carol (freenode)", "hi", [], {"urgency": 1}, -1],
+  "action-icons": ["Player", 0, "", "Playing", "", ["media-playback-pause-symbolic", "Pause"], {"action-icons": true, "urgency": 1}, -1],
+  "odd-types": ["Weird", 0, "", "", "", "not-an-array", {"urgency": "high", "transient": "yes"}, "soon"]
+}
