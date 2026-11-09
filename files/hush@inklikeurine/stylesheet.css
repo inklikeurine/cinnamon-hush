@@ -3,7 +3,9 @@
    the running Cinnamon theme at runtime (Drawer.js probes the theme's menu
    colours and sets them inline); the colours below are only a fallback for a
    theme that defines none of them. Everything else here is layout or a
-   neutral grey overlay that reads on light and dark themes alike. */
+   neutral grey overlay that reads on light and dark themes alike.
+   `transition-duration` fades hover and the Do Not Disturb tint; Cinnamon
+   skips it when Effects are off. */
 
 .hush-drawer {
     background-color: #1e1e1e;
@@ -26,13 +28,30 @@
 }
 
 .hush-header {
-    padding: 14px 16px 10px 16px;
-    spacing: 4px;
+    padding: 8px 8px 10px 8px;
+    spacing: 2px;
     border-bottom-width: 1px;
     border-bottom-color: rgba(128, 128, 128, 0.3);
+    transition-duration: 200ms;
 }
 
+/* The whole row is the switch. */
 .hush-dnd-row {
+    padding: 6px 8px;
+    border-radius: 6px;
+    transition-duration: 120ms;
+}
+
+.hush-dnd-row:hover,
+.hush-dnd-row:focus {
+    background-color: rgba(128, 128, 128, 0.15);
+}
+
+.hush-dnd-row:active {
+    background-color: rgba(128, 128, 128, 0.25);
+}
+
+.hush-dnd-box {
     spacing: 12px;
 }
 
@@ -41,13 +60,9 @@
     font-size: 1.1em;
 }
 
-.hush-dnd-switch {
-    padding: 2px;
-}
-
 .hush-status-row {
     spacing: 8px;
-    padding-top: 2px;
+    padding: 2px 8px 0 8px;
 }
 
 .hush-status.hush-status-on {
@@ -72,7 +87,7 @@
 }
 
 .hush-empty {
-    padding: 48px 24px 24px 24px;
+    padding: 24px;
     spacing: 10px;
 }
 
@@ -90,9 +105,28 @@
 }
 
 .hush-group-header {
-    padding: 6px 16px 2px 16px;
+    margin: 0 6px;
+    padding: 4px 10px 3px 8px;
+    border-radius: 6px;
+    transition-duration: 120ms;
+}
+
+/* Clicking an application's header folds its group. */
+.hush-group-header:hover {
+    background-color: rgba(128, 128, 128, 0.12);
+}
+
+.hush-group-header:active {
+    background-color: rgba(128, 128, 128, 0.2);
+}
+
+.hush-group-header-box {
     spacing: 8px;
     min-height: 26px;
+}
+
+.hush-group-controls {
+    spacing: 2px;
 }
 
 .hush-group-label {
@@ -101,12 +135,29 @@
 
 .hush-group-count {
     font-size: 0.85em;
+    padding: 0 7px;
+    border-radius: 9px;
+    background-color: rgba(128, 128, 128, 0.2);
+    transition-duration: 200ms;
+}
+
+/* Folded with something new inside: the accent colour is set inline from
+   the theme; this is the fallback. */
+.hush-group-count.hush-group-count-unread {
+    background-color: rgba(82, 148, 226, 0.75);
+    color: #ffffff;
+}
+
+.hush-group-rows {
+    padding: 0 10px;
+    spacing: 4px;
 }
 
 .hush-group-button,
 .hush-row-close {
     padding: 3px 5px;
     border-radius: 4px;
+    transition-duration: 120ms;
 }
 
 .hush-group-button:hover,
@@ -130,12 +181,12 @@
 }
 
 .hush-row {
-    margin: 2px 10px;
     padding: 8px 10px 8px 12px;
     border-radius: 6px;
     border-left-width: 3px;
     border-left-color: transparent;
     spacing: 4px;
+    transition-duration: 120ms;
 }
 
 .hush-row:hover {
@@ -144,6 +195,10 @@
 
 .hush-row:focus {
     background-color: rgba(128, 128, 128, 0.22);
+}
+
+.hush-row:active {
+    background-color: rgba(128, 128, 128, 0.24);
 }
 
 /* Unread rows: the accent colour is set inline from the theme; this is the

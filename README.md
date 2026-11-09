@@ -21,7 +21,11 @@ two on your panels.
 - Sliding drawer (left or right edge, automatic by default) listing every
   notification grouped by application, newest first, with a relative time
   ("now", "4 min", "Yesterday"), body, action buttons and a dismiss button
-  per entry; it takes its colours from the active Cinnamon theme
+  per entry; it takes its colours from the active Cinnamon theme. Click an
+  application's name to fold its group
+- Entries arrive, leave and fold with short animations that follow
+  Cinnamon's *Effects on menus* setting; the drawer keeps your scroll
+  position while it updates
 - Do Not Disturb switch in the drawer header, in the panel icon's
   right-click menu and on middle-click; the status line says why it is on
 - Scheduled Do Not Disturb: start/end times (overnight is fine), every day,
@@ -81,14 +85,18 @@ Source: <https://github.com/inklikeurine/cinnamon-hush>
    an entry to open its application, press an action button to answer it,
    or `×` to dismiss it. Point at an application's group to show its
    buttons: the bell mutes that application (a "Muted" label then stays;
-   click it to unmute) and `×` clears all of its entries. *Clear all* at
+   click it to unmute) and `×` clears all of its entries. Click the
+   application's name to fold its group: the badge then shows how many
+   entries are hidden, coloured if any of them is new; folds are forgotten
+   when the drawer closes. *Clear all* at
    the bottom dismisses everything; the clock button next to it shows what
    was dismissed, with *Delete cleared* to forget it; the gear opens Hush's
    settings and the last button Cinnamon's notification settings. Point at
    a time to see the exact date. Escape, a click outside or another click
    on the icon closes the drawer. From the keyboard: Up/Down move between
-   entries, Enter opens one, Delete dismisses it, Tab reaches the buttons.
-3. Turn Do Not Disturb on with the switch at the top of the drawer, from
+   entries in unfolded groups, Enter opens one, Delete dismisses it, Tab
+   reaches the buttons.
+3. Turn Do Not Disturb on by clicking the "Do Not Disturb" row at the top of the drawer, from
    the icon's right-click menu, or by middle-clicking the icon. The icon
    changes and a status line appears under the switch saying "On". Banners and sounds stop; entries collect with an unread mark.
    When a schedule or an automatic trigger turned it on, the status line
@@ -121,6 +129,10 @@ Source: <https://github.com/inklikeurine/cinnamon-hush>
   memory only) and `~/.local/share/hush/state.json` (the next notification
   id). Nothing under `~/.cache`.
 - Network requests: none.
+- Animations (the slide, entries growing in and sliding out, groups
+  folding) run only when *System Settings → Effects* is on together with
+  its *Effects on menus* switch, the same rule Cinnamon's own menus
+  follow. With effects off, the drawer appears and updates instantly.
 - Hush's Do Not Disturb is its own state; it does **not** change the
   *Notifications* switch in System Settings. The other direction works:
   turning notifications off in System Settings counts as Do Not Disturb in
